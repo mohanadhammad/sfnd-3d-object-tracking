@@ -22,6 +22,13 @@
 
 using namespace std;
 
+std::string g_detType = "";
+int g_kptsNum = 0;
+float g_detTime_ms = 0.0;
+std::string g_descType = "";
+float g_descTime_ms = 0.0;
+int g_matchedKpts = 0;
+
 /* MAIN PROGRAM */
 int main(int argc, const char *argv[])
 {
@@ -120,7 +127,6 @@ int main(int argc, const char *argv[])
         (dataBuffer.end() - 1)->lidarPoints = lidarPoints;
 
         cout << "#3 : CROP LIDAR POINTS done" << endl;
-
 
         /* CLUSTER LIDAR POINT CLOUD */
 
