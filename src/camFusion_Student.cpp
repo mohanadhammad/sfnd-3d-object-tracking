@@ -159,83 +159,90 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
     
     // loop through all keypoint matches and assign them the bounding boxes they belong to.
     
-    std::vector<int> curBBoxIds;
-    std::vector<int> prvBBoxIds;
+    std::vector<int> trainBBoxIds;
+    std::vector<int> queryBBoxIds;
 
     for (auto it = matches.begin(); it != matches.end(); it++)
     {
         // fill the bounding boxes relevant keymatches in current image
-        bool bCurFound = false;
-        int bCurBBoxID;   
-        for (auto curBBItr = currFrame.boundingBoxes.begin(); curBBItr != currFrame.boundingBoxes.end(); curBBItr++)
+        bool bTrainFound = false;
+        int bTrainBBoxID;   
+        for (auto trainBBItr = currFrame.boundingBoxes.begin(); trainBBItr != currFrame.boundingBoxes.end(); trainBBItr++)
         {
             // get matched keypoint coordinates to be abel to check it within the ROI
     
             const cv::KeyPoint &keypoint = currFrame.keypoints[ it->trainIdx ];
 
-            if (curBBItr->roi.contains(keypoint.pt))
+            if (trainBBItr->roi.contains(keypoint.pt))
             {
-                bCurFound = true;
-                bCurBBoxID = curBBItr->boxID;
+                bTrainFound = true;
+                bTrainBBoxID = trainBBItr->boxID;
                 
                 // curBBItr->kptMatches.push_back(*it);
                 // curBBItr->keypoints.push_back(keypoint);
+                
+                break;
             }
         }
         
         // fill the bounding boxes relevant keymatches in previous image
-        bool bPrvFound = false;
-        int bPrvBBoxID;
-        for (auto prvBBItr = prevFrame.boundingBoxes.begin(); prvBBItr != prevFrame.boundingBoxes.end(); prvBBItr++)
+        bool bQueryFound = false;
+        int bQueryBBoxID;
+        for (auto queryBBItr = prevFrame.boundingBoxes.begin(); queryBBItr != prevFrame.boundingBoxes.end(); queryBBItr++)
         {
             // get matched keypoint coordinates to be abel to check it within the ROI
 
             const cv::KeyPoint &keypoint = prevFrame.keypoints[ it->queryIdx ];
             
-            if (prvBBItr->roi.contains(keypoint.pt))
+            if (queryBBItr->roi.contains(keypoint.pt))
             {
-                bPrvFound = true;
-                bPrvBBoxID = prvBBItr->boxID;
+                bQueryFound = true;
+                bQueryBBoxID = queryBBItr->boxID;
                 
                 // prvBBItr->kptMatches.push_back(*it);
                 // prvBBItr->keypoints.push_back(keypoint);
+
+                break;
             }
         }
 
-        if (bPrvFound && bCurFound)
+        if (bQueryFound && bTrainFound)
         {
-            curBBoxIds.push_back(bCurBBoxID);
-            prvBBoxIds.push_back(bPrvBBoxID);
+            trainBBoxIds.push_back(bTrainBBoxID);
+            queryBBoxIds.push_back(bQueryBBoxID);
         }
     }
     
     int queryID = -1, queryMaxNum = 0;
     int trainID = -1, trainMaxNum = 0;
 
-    auto queryItr = prvBBoxIds.begin();
-    auto trainItr = curBBoxIds.begin();
+    auto queryItr = queryBBoxIds.begin();
+    auto trainItr = trainBBoxIds.begin();
 
     // loop through all bbox ids <train, query>
     // count the number appearance of each bbox ID and take the maximum counts
-    for (int i = 0; i < curBBoxIds.size(); ++i)
+    for (int i = 0; i < trainBBoxIds.size(); ++i)
     {
-        int queryBBoxCounts = std::count(prvBBoxIds.begin(), prvBBoxIds.end(), *(queryItr + i));
+        int tmpQueryID = *(queryItr + i);
+        int tmpTrainID = *(trainItr + i);
+
+        int queryBBoxCounts = std::count(queryBBoxIds.begin(), queryBBoxIds.end(), tmpQueryID);
         if (queryBBoxCounts > queryMaxNum)
         {
             queryMaxNum = queryBBoxCounts;
-            queryID = *(queryItr + i);
+            queryID = tmpQueryID;
         }
 
-        int trainBBoxCounts = std::count(curBBoxIds.begin(), curBBoxIds.end(), *(trainItr + i));
+        int trainBBoxCounts = std::count(trainBBoxIds.begin(), trainBBoxIds.end(), tmpTrainID);
         if (trainBBoxCounts > trainMaxNum)
         {
             trainMaxNum = trainBBoxCounts;
-            trainID = *(trainItr + i);
+            trainID = tmpTrainID;
         }
     }
 
     bbBestMatches.insert( std::make_pair(trainID, queryID) );
 
     auto it = bbBestMatches.begin();
-    std::cout << "curBBoxIds size = " << curBBoxIds.size() << " Best BB matches = " << it->first << ", " << it->second << "\n";
+    std::cout << "curBBoxIds size = " << trainBBoxIds.size() << " Best BB matches = " << it->first << ", " << it->second << "\n";
 }
