@@ -148,7 +148,28 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
 {
-    // ...
+    // find closest distance to Lidar points 
+    double prevXMean = 0.0;
+    double currXMean = 0.0;
+
+    // calculate the mean of the lidar points x distance to minimize wrong TTC estimation
+    // error when outliers are involved in the calculation.
+
+    for(auto it = lidarPointsPrev.begin(); it != lidarPointsPrev.end(); ++it)
+    {
+        prevXMean += it->x;
+    }
+    prevXMean /= lidarPointsPrev.size();
+
+    for(auto it = lidarPointsCurr.begin(); it != lidarPointsCurr.end(); ++it)
+    {
+        currXMean += it->x;
+    }
+    currXMean /= lidarPointsCurr.size();
+
+    // compute TTC from both measurements
+    const double sampleTime_s = 1.0 / frameRate;
+    TTC = currXMean * sampleTime_s / (prevXMean - currXMean);
 }
 
 
@@ -177,7 +198,7 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
                     countTable.at<int>(trainBBItr->boxID, queryBBItr->boxID)++;
                 }
             }
-        }  
+        }
     }
     
 
@@ -206,6 +227,6 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
         }
     }
 
-    auto it = bbBestMatches.begin();
-    std::cout << "curBBoxIds size = " << countTable.size() << " Best BB matches = " << it->first << ", " << it->second << "\n";
+    // auto it = bbBestMatches.begin();
+    // std::cout << "curBBoxIds size = " << countTable.size() << " Best BB matches = " << it->first << ", " << it->second << "\n";
 }
