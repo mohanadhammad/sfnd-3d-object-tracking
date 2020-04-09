@@ -202,9 +202,22 @@ int main(int argc, const char *argv[])
 
         cout << "#6 : EXTRACT DESCRIPTORS done" << endl;
 
-
         if (dataBuffer.size() > 1) // wait until at least two images have been processed
         {
+            for (size_t i = 0; i < (dataBuffer.end()-1)->boundingBoxes.size(); i++)
+            {
+                /* Debugging */
+                std::cout << "Current Frame BB #" << (dataBuffer.end()-1)->boundingBoxes[i].boxID << " has lidar points = " 
+                          << (dataBuffer.end()-1)->boundingBoxes[i].lidarPoints.size() << std::endl;
+            }
+
+            for (size_t i = 0; i < (dataBuffer.end()-2)->boundingBoxes.size(); i++)
+            {
+                /* Debugging */
+                std::cout << "previous Frame BB #" << (dataBuffer.end()-2)->boundingBoxes[i].boxID << " has lidar points = " 
+                          << (dataBuffer.end()-2)->boundingBoxes[i].lidarPoints.size() << std::endl;
+            }
+
 
             /* MATCH KEYPOINT DESCRIPTORS */
 
@@ -259,6 +272,9 @@ int main(int argc, const char *argv[])
                         prevBB = &(*it2);
                     }
                 }
+
+                std::cout << "Current Frame BB lidar points = " << currBB->lidarPoints.size() << std::endl;
+                std::cout << "Current Frame BB kpts points = " << currBB->keypoints.size() << std::endl;
 
                 // compute TTC for current match
                 if( currBB->lidarPoints.size()>0 && prevBB->lidarPoints.size()>0 ) // only compute TTC if we have Lidar points
