@@ -154,5 +154,88 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {
-    // ...
+    // use the matched keypoints to identify the matching between bounding boxes-
+    // first, associate the keypoints to detected bounding boxed and then check which bounding boxes are relevant.
+    
+    // loop through all keypoint matches and assign them the bounding boxes they belong to.
+    
+    std::vector<int> curBBoxIds;
+    std::vector<int> prvBBoxIds;
+
+    for (auto it = matches.begin(); it != matches.end(); it++)
+    {
+        // fill the bounding boxes relevant keymatches in current image
+        bool bCurFound = false;
+        int bCurBBoxID;   
+        for (auto curBBItr = currFrame.boundingBoxes.begin(); curBBItr != currFrame.boundingBoxes.end(); curBBItr++)
+        {
+            // get matched keypoint coordinates to be abel to check it within the ROI
+    
+            const cv::KeyPoint &keypoint = currFrame.keypoints[ it->trainIdx ];
+
+            if (curBBItr->roi.contains(keypoint.pt))
+            {
+                bCurFound = true;
+                bCurBBoxID = curBBItr->boxID;
+                
+                // curBBItr->kptMatches.push_back(*it);
+                // curBBItr->keypoints.push_back(keypoint);
+            }
+        }
+        
+        // fill the bounding boxes relevant keymatches in previous image
+        bool bPrvFound = false;
+        int bPrvBBoxID;
+        for (auto prvBBItr = prevFrame.boundingBoxes.begin(); prvBBItr != prevFrame.boundingBoxes.end(); prvBBItr++)
+        {
+            // get matched keypoint coordinates to be abel to check it within the ROI
+
+            const cv::KeyPoint &keypoint = prevFrame.keypoints[ it->queryIdx ];
+            
+            if (prvBBItr->roi.contains(keypoint.pt))
+            {
+                bPrvFound = true;
+                bPrvBBoxID = prvBBItr->boxID;
+                
+                // prvBBItr->kptMatches.push_back(*it);
+                // prvBBItr->keypoints.push_back(keypoint);
+            }
+        }
+
+        if (bPrvFound && bCurFound)
+        {
+            curBBoxIds.push_back(bCurBBoxID);
+            prvBBoxIds.push_back(bPrvBBoxID);
+        }
+    }
+    
+    int queryID = -1, queryMaxNum = 0;
+    int trainID = -1, trainMaxNum = 0;
+
+    auto queryItr = prvBBoxIds.begin();
+    auto trainItr = curBBoxIds.begin();
+
+    // loop through all bbox ids <train, query>
+    // count the number appearance of each bbox ID and take the maximum counts
+    for (int i = 0; i < curBBoxIds.size(); ++i)
+    {
+        int queryBBoxCounts = std::count(prvBBoxIds.begin(), prvBBoxIds.end(), *(queryItr + i));
+        if (queryBBoxCounts > queryMaxNum)
+        {
+            queryMaxNum = queryBBoxCounts;
+            queryID = *(queryItr + i);
+        }
+
+        int trainBBoxCounts = std::count(curBBoxIds.begin(), curBBoxIds.end(), *(trainItr + i));
+        if (trainBBoxCounts > trainMaxNum)
+        {
+            trainMaxNum = trainBBoxCounts;
+            trainID = *(trainItr + i);
+        }
+    }
+
+    bbBestMatches.insert( std::make_pair(trainID, queryID) );
+
+    auto it = bbBestMatches.begin();
+    std::cout << "curBBoxIds size = " << curBBoxIds.size() << " Best BB matches = " << it->first << ", " << it->second << "\n";
 }
