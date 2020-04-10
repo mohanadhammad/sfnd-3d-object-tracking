@@ -204,50 +204,44 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
     
     // loop through all keypoint matches and assign them the bounding boxes they belong to.
     
-    cv::Mat countTable = cv::Mat::zeros(currFrame.boundingBoxes.size(), prevFrame.boundingBoxes.size(), CV_32S);
+    cv::Mat bbMatchTable = cv::Mat::zeros(prevFrame.boundingBoxes.size(), currFrame.boundingBoxes.size(), CV_32S);
 
-    for (auto it = matches.begin(); it != matches.end(); it++)
+    for (const auto &match : matches)
     {
-        // fill the bounding boxes relevant keymatches in current image
+        const cv::KeyPoint &currKpt = currFrame.keypoints[ match.trainIdx ];
+        const cv::KeyPoint &prevKpt = prevFrame.keypoints[ match.queryIdx ];
 
-        const cv::KeyPoint &trainKpt = currFrame.keypoints[ it->trainIdx ];
-        const cv::KeyPoint &queryKpt = prevFrame.keypoints[ it->queryIdx ];
-
-        for (auto trainBBItr = currFrame.boundingBoxes.begin(); trainBBItr != currFrame.boundingBoxes.end(); trainBBItr++)
+        for (const BoundingBox& prevBoundingBox : prevFrame.boundingBoxes)
         {
-            for (auto queryBBItr = prevFrame.boundingBoxes.begin(); queryBBItr != prevFrame.boundingBoxes.end(); queryBBItr++)
+            for (const BoundingBox& currBoundingBox : currFrame.boundingBoxes)
             {
-                if (trainBBItr->roi.contains(trainKpt.pt) && queryBBItr->roi.contains(queryKpt.pt))
+                if (prevBoundingBox.roi.contains(prevKpt.pt) && currBoundingBox.roi.contains(currKpt.pt))
                 {
-                    countTable.at<int>(trainBBItr->boxID, queryBBItr->boxID)++;
+                    bbMatchTable.at<int>(prevBoundingBox.boxID, currBoundingBox.boxID)++;
                 }
             }
         }
-    }
-    
+    }  
 
-    for (auto trainBBItr = currFrame.boundingBoxes.begin(); trainBBItr != currFrame.boundingBoxes.end(); trainBBItr++)
+    // loop through the prev frame counts
+    for (int i = 0; i < bbMatchTable.rows; i++)
     {
         int bestMatchCounts = 0;
-        int bestMatchTrainIndex = -1;
-        int bestMatchQueryIndex = -1;
+        int bestMatchIndex = -1;
 
-        for (auto queryBBItr = prevFrame.boundingBoxes.begin(); queryBBItr != prevFrame.boundingBoxes.end(); queryBBItr++)
+        // loop through the curr frame counts
+        for (int j = 0; j < bbMatchTable.cols; j++)
         {
-            int i = trainBBItr->boxID;
-            int j = trainBBItr->boxID;
-
-            if (countTable.at<int>(i, j) > bestMatchCounts)
+            if (bbMatchTable.at<int>(i, j) > 0 && bbMatchTable.at<int>(i, j) > bestMatchCounts)
             {
-                bestMatchCounts = countTable.at<int>(i, j);
-                bestMatchTrainIndex = i;
-                bestMatchQueryIndex = j;
+                bestMatchCounts = bbMatchTable.at<int>(i, j);
+                bestMatchIndex = j;
             }
         }
 
-        if (bestMatchTrainIndex != -1 && bestMatchQueryIndex != -1)
+        if (bestMatchIndex != -1)
         {
-            bbBestMatches.emplace(bestMatchQueryIndex, bestMatchTrainIndex);
+            bbBestMatches.emplace(i, bestMatchIndex);
         }
     }
 
