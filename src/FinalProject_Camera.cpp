@@ -23,11 +23,16 @@
 using namespace std;
 
 std::string g_detType = "";
-int g_kptsNum = 0;
-float g_detTime_ms = 0.0;
 std::string g_descType = "";
-float g_descTime_ms = 0.0;
-int g_matchedKpts = 0;
+
+double g_lidarTTCMean = 0.0;
+int g_lidarTTCCounts = 0;
+double g_lidarTTC = 0.0;
+double g_cameraTTC = 0.0;
+double g_cameraTTCMean = 0.0;
+int g_cameraTTCCounts = 0;
+double g_diffTTC = 0.0;
+int g_imgIndex = 0;
 
 /* MAIN PROGRAM */
 int main(int argc, const char *argv[])
@@ -80,6 +85,20 @@ int main(int argc, const char *argv[])
     int dataBufferSize = 2;       // no. of images which are held in memory (ring buffer) at the same time
     vector<DataFrame> dataBuffer; // list of data frames which are held in memory at the same time
     bool bVis = false;            // visualize results
+
+    
+    string detectorType = "FAST"; // -> SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT
+    string descriptorType = "FREAK"; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
+
+    g_detType = detectorType;
+    g_descType = descriptorType;
+    g_lidarTTC = 0.0;
+    g_cameraTTC = 0.0;
+    g_diffTTC = 0.0;
+    g_lidarTTCMean = 0.0;
+    g_lidarTTCCounts = 0;
+    g_cameraTTCMean = 0.0;
+    g_cameraTTCCounts = 0;
 
     /* MAIN LOOP OVER ALL IMAGES */
 
@@ -156,8 +175,7 @@ int main(int argc, const char *argv[])
 
         // extract 2D keypoints from current image
         vector<cv::KeyPoint> keypoints; // create empty feature list for current image
-        string detectorType = "SHITOMASI";
-
+ 
         if (detectorType.compare("SHITOMASI") == 0)
         {
             detKeypointsShiTomasi(keypoints, imgGray, false);
@@ -194,7 +212,6 @@ int main(int argc, const char *argv[])
         /* EXTRACT KEYPOINT DESCRIPTORS */
 
         cv::Mat descriptors;
-        string descriptorType = "BRISK"; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
         descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType);
 
         // push descriptors for current frame to end of data buffer
@@ -221,9 +238,9 @@ int main(int argc, const char *argv[])
             /* MATCH KEYPOINT DESCRIPTORS */
 
             vector<cv::DMatch> matches;
-            string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
+            string matcherType = "MAT_FLANN";        // MAT_BF, MAT_FLANN
             string descriptorType = "DES_BINARY"; // DES_BINARY, DES_HOG
-            string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
+            string selectorType = "SEL_KNN";       // SEL_NN, SEL_KNN
 
             matchDescriptors((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints,
                              (dataBuffer.end() - 2)->descriptors, (dataBuffer.end() - 1)->descriptors,
@@ -289,7 +306,21 @@ int main(int argc, const char *argv[])
                     computeTTCCamera((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, currBB->kptMatches, sensorFrameRate, ttcCamera);
                     //// EOF STUDENT ASSIGNMENT
 
-                    bVis = true;
+                    g_lidarTTCMean += ttcLidar;
+                    g_cameraTTCMean += ttcCamera;
+                    g_lidarTTCCounts++;
+                    g_cameraTTCCounts++;
+
+                    double diffTTC = std::abs(ttcLidar - ttcCamera);
+                    if (ttcCamera != NAN && diffTTC > g_diffTTC)
+                    {
+                        g_imgIndex = imgIndex;
+                        g_diffTTC = diffTTC;
+                        g_lidarTTC = ttcLidar;
+                        g_cameraTTC = ttcCamera;
+                    }
+
+                    bVis = false;
                     if (bVis)
                     {
                         cv::Mat visImg = (dataBuffer.end() - 1)->cameraImg.clone();
@@ -310,10 +341,13 @@ int main(int argc, const char *argv[])
 
                 } // eof TTC computation
             } // eof loop over all BB matches            
-
         }
-
     } // eof loop over all images
+
+    g_lidarTTCMean /= g_lidarTTCCounts;
+    g_cameraTTCMean /= g_cameraTTCCounts;
+
+    std::cout << "|" << g_detType << "|" << g_descType << "|" << g_imgIndex-1 << "|" << g_imgIndex << "|" << g_lidarTTC << "|" << g_cameraTTC << "|" << g_diffTTC << "|" << g_lidarTTCMean << "|" << g_cameraTTCMean << "|" << std::endl;
 
     return 0;
 }

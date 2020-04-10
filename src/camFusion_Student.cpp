@@ -205,20 +205,17 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 
     std::sort(distRatios.begin(), distRatios.end());
     const bool isEven = (distRatios.size() % 2 == 0) ? true : false;
-    const int offset = floor((distRatios.size() / 2));
+    const int medianIndex = floor((distRatios.size() / 2));
 
     double medianDistRatio;
     if (isEven)
     {
-        auto median = distRatios.begin() + offset;
-        medianDistRatio = *(median++);
-        medianDistRatio += *(median);
+        medianDistRatio = distRatios[medianIndex-1] + distRatios[medianIndex];
         medianDistRatio /= 2.0;
     }
     else
     {
-        auto median = distRatios.begin() + offset;
-        medianDistRatio = *(median);
+        medianDistRatio = distRatios[medianIndex];
     }
     
     double dT = 1 / frameRate;
